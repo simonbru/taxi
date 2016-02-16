@@ -35,29 +35,14 @@ class TextLine(object):
 class EntryLine(TextLine):
     """
     The EntryLine is a line representing a timesheet entry, with an alias, a
-    duration and a description. The text attribute allows to keep the original
-    formatting of the duration as long as the entry is not changed.
+    duration and a description.
     """
-    def __init__(self, alias, duration, description, text=None, ignored=False):
+    def __init__(self, alias, duration, description, flags=None):
         self._alias = alias
         self.duration = duration
         self.description = description
-        self.formatting = None
 
-        # These should normally be always set to False, but can be changed
-        # later
-        self.commented = False
-        self.ignored = ignored
-
-        if text is not None:
-            self._text = text
-
-    def __setattr__(self, name, value):
-        super(EntryLine, self).__setattr__(name, value)
-
-        if name != '_text':
-            self._text = None
-
+    # TODO
     def generate_text(self):
         """
         Return a textual representation of the line.
@@ -107,21 +92,6 @@ class EntryLine(TextLine):
 
         return text
 
-    @property
-    def text(self):
-        if self._text is not None:
-            return self._text
-        else:
-            return self.generate_text()
-
-    @property
-    def alias(self):
-        return self._alias.replace('?', '')
-
-    @alias.setter
-    def alias(self, value):
-        self._alias = value
-
 
 class DateLine(TextLine):
     def __init__(self, date, text=None, date_format='%d.%m.%Y'):
@@ -148,8 +118,11 @@ class TimesheetParser(object):
     For the parsed string to be a valid timesheet, any entry line needs to
     be preceded by at least a date line.
     """
-    time_match_re = re.compile(
-        r'(?:(\d{1,2}):?(\d{1,2}))?-(?:(?:(\d{1,2}):?(\d{1,2}))|\?)'
+    entry_match_re = re.compile(
+        r"^(?:(?P<flags>.+?) )?"
+        r"(?P<alias>[\w_-]+) "
+        r"(?:(?:(?P<start_time>(?:\d{1,2}):?(?:\d{1,2}))?-(?P<end_time>(?:(?:\d{1,2}):?(?:\d{1,2}))|\?))|(?P<duration>\d+(?:\.\d+)?)) "
+        r"(?P<description>.+)$"
     )
     date_match_re = re.compile(r'(\d{1,2})\D(\d{1,2})\D(\d{4}|\d{2})')
     us_date_match_re = re.compile(r'(\d{4})\D(\d{1,2})\D(\d{1,2})')
@@ -191,17 +164,36 @@ class TimesheetParser(object):
 
     @classmethod
     def parse_entry_line(cls, line):
-        split_line = cls.split_line(line)
+        split_line = re.match(cls.entry_match_re, line)
 
-        alias = split_line[0].replace('?', '')
-        time = cls.parse_time(split_line[1])
-        description = split_line[2]
-        formatting = cls.detect_formatting(line)
+        alias = split_line.group('alias').replace('?', '')
+        if split_line.group('start_time') is not None:
+            if split_line.group('start_time'):
+                start_time = cls.parse_time(split_line.group('start_time'))
+            else:
+                start_time = None
 
-        ignored = split_line[0].endswith('?') or split_line[0].startswith('?')
+            if split_line.group('end_time') == '?':
+                end_time = None
+            else:
+                end_time = cls.parse_time(split_line.group('end_time'))
 
-        entry_line = EntryLine(alias, time, description, line, ignored)
-        entry_line.formatting = formatting
+            duration = (start_time, end_time)
+
+        if split_line.group('duration') is not None:
+            duration = float(split_line.group('duration'))
+
+        description = split_line.group('description')
+
+        flags = set()
+
+        # TODO
+        if (split_line.group('alias').endswith('?') or
+                (split_line.group('flags') and '?' in split_line.group('flags'))):
+            flags.add(1)
+
+        entry_line = EntryLine(alias, duration, description, line, flags)
+        #entry_line.formatting = formatting
 
         return entry_line
 
@@ -246,39 +238,11 @@ class TimesheetParser(object):
 
     @classmethod
     def parse_time(cls, str_time):
-        time = re.match(cls.time_match_re, str_time)
-        time_end = None
+        str_time = re.replace('[^\d]', '')
+        minutes = int(str_time[-2:])
+        hours = int(str_time[0:2] if len(str_time) > 3 else str_time[0])
 
-        # HH:mm-HH:mm syntax found
-        if time is not None:
-            try:
-                # -HH:mm syntax found
-                if time.group(1) is None and time.group(2) is None:
-                    if time.group(3) is not None and time.group(4) is not None:
-                        time_end = datetime.time(
-                            int(time.group(3)), int(time.group(4))
-                        )
-
-                    total_hours = (None, time_end)
-                else:
-                    time_start = datetime.time(
-                        int(time.group(1)), int(time.group(2))
-                    )
-                    if time.group(3) is not None and time.group(4) is not None:
-                        time_end = datetime.time(
-                            int(time.group(3)), int(time.group(4))
-                        )
-                    total_hours = (time_start, time_end)
-            except ValueError as e:
-                raise ParseError(str(e))
-        else:
-            try:
-                total_hours = float(str_time)
-            except ValueError:
-                raise ParseError("The duration must be a float number or a "
-                                 "HH:mm string")
-
-        return total_hours
+        return datetime.time(hours, minutes)
 
     @classmethod
     def extract_date(cls, line):

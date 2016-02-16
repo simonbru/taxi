@@ -258,3 +258,11 @@ def test_parse_error_contains_line_number():
         TimesheetParser.parse("hello world")
     except ParseError as e:
         assert e.line_number == 1
+
+
+def test_new_parser():
+    foobar = TimesheetParser.parse("""
+    21.04.2016
+    foobar 6 test
+    """)
+    import pdb; pdb.set_trace()
