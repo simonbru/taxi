@@ -37,10 +37,36 @@ class EntryLine(TextLine):
     The EntryLine is a line representing a timesheet entry, with an alias, a
     duration and a description.
     """
-    def __init__(self, alias, duration, description, flags=None):
-        self._alias = alias
+    FLAG_IGNORED = 1
+    FLAG_PUSHED = 2
+
+    FLAGS_MAPPING = {
+        FLAG_IGNORED: '?',
+        FLAG_PUSHED: '=',
+    }
+
+    def __init__(self, alias, duration, description, flags=None, formatting=None):
+        self.alias = alias
         self.duration = duration
         self.description = description
+
+        self.formatting = formatting or {
+            'spacings': (1, 1, 1),
+            'time_format': '%H:%M'
+        }
+
+        self.flags = flags or set()
+
+    @property
+    def ignored(self):
+        return self.FLAG_IGNORED in self.flags
+
+    @property
+    def text(self):
+        return self.generate_text()
+
+    def get_flags_text(self):
+        return ''.join([self.FLAGS_MAPPING[flag] for flag in self.flags])
 
     # TODO
     def generate_text(self):
@@ -51,13 +77,6 @@ class EntryLine(TextLine):
         some OCD people like to have perfectly aligned timesheets.
         """
         formatting = self.formatting
-
-        if not formatting:
-            formatting = {
-                'width': (None, None),
-                'time_format': '%H:%M',
-                'spacer': (' ', ' ')
-            }
 
         if isinstance(self.duration, tuple):
             start = (self.duration[0].strftime(formatting['time_format'])
@@ -70,25 +89,22 @@ class EntryLine(TextLine):
 
             duration = '%s-%s' % (start, end)
         else:
-            # Remove '.0' if the number doesn't have a decimal part
-            duration = str(self.duration).rstrip('0').rstrip('.')
+            duration = self.duration
 
-        commented_prefix = '# ' if self.commented else ''
-        alias = '%s?' % self.alias if self.ignored else self.alias
+        # TODO flags
+        # commented_prefix = '# ' if self.commented else ''
+        # alias = '%s' % self.alias if self.ignored else self.alias
+        flags_text = self.get_flags_text()
 
-        padding1 = (1 if formatting['width'][0] is None
-                    else max(1, formatting['width'][0] - len(alias)))
-        padding2 = (1 if formatting['width'][1] is None
-                    else max(1, formatting['width'][1] - len(duration)))
-
-        text = ('{commented}{alias}{padding1}{duration}{padding2}'
+        text = ('{flags}{spacing1}{alias}{spacing2}{duration}{spacing3}'
                 '{description}'.format(
-                    commented=commented_prefix,
-                    alias=alias,
-                    padding1=formatting['spacer'][0] * padding1,
+                    flags=flags_text,
+                    alias=self.alias,
+                    spacing1=' ' * self.formatting['spacings'][0] if flags_text else '',
+                    spacing2=' ' * self.formatting['spacings'][1],
+                    spacing3=' ' * self.formatting['spacings'][2],
                     duration=duration,
-                    description=self.description,
-                    padding2=formatting['spacer'][1] * padding2))
+                    description=self.description))
 
         return text
 
@@ -119,14 +135,13 @@ class TimesheetParser(object):
     be preceded by at least a date line.
     """
     entry_match_re = re.compile(
-        r"^(?:(?P<flags>.+?) )?"
-        r"(?P<alias>[\w_-]+) "
-        r"(?:(?:(?P<start_time>(?:\d{1,2}):?(?:\d{1,2}))?-(?P<end_time>(?:(?:\d{1,2}):?(?:\d{1,2}))|\?))|(?P<duration>\d+(?:\.\d+)?)) "
+        r"^(?:(?P<flags>.+?)(?P<spacing1>\s+))?"
+        r"(?P<alias>[?\w_-]+)(?P<spacing2>\s+)"
+        r"(?:(?:(?P<start_time>(?:\d{1,2}):?(?:\d{1,2}))?-(?P<end_time>(?:(?:\d{1,2}):?(?:\d{1,2}))|\?))|(?P<duration>\d+(?:\.\d+)?))(?P<spacing3>\s+)"
         r"(?P<description>.+)$"
     )
     date_match_re = re.compile(r'(\d{1,2})\D(\d{1,2})\D(\d{4}|\d{2})')
     us_date_match_re = re.compile(r'(\d{4})\D(\d{1,2})\D(\d{1,2})')
-    formatting_match_re = re.compile(r'([^\s]+\s+)([^\s]+\s+)')
 
     @classmethod
     def parse(cls, text):
@@ -141,6 +156,7 @@ class TimesheetParser(object):
 
         for (lineno, line) in enumerate(lines, 1):
             line = line.strip()
+            line = line.replace('\t', ' ' * 4)
 
             try:
                 if len(line) == 0 or line.startswith('#'):
@@ -167,17 +183,21 @@ class TimesheetParser(object):
         split_line = re.match(cls.entry_match_re, line)
 
         alias = split_line.group('alias').replace('?', '')
+        start_time = end_time = None
+
         if split_line.group('start_time') is not None:
             if split_line.group('start_time'):
                 start_time = cls.parse_time(split_line.group('start_time'))
             else:
                 start_time = None
 
+        if split_line.group('end_time') is not None:
             if split_line.group('end_time') == '?':
                 end_time = None
             else:
                 end_time = cls.parse_time(split_line.group('end_time'))
 
+        if start_time or end_time:
             duration = (start_time, end_time)
 
         if split_line.group('duration') is not None:
@@ -190,55 +210,23 @@ class TimesheetParser(object):
         # TODO
         if (split_line.group('alias').endswith('?') or
                 (split_line.group('flags') and '?' in split_line.group('flags'))):
-            flags.add(1)
+            flags.add(EntryLine.FLAG_IGNORED)
 
-        entry_line = EntryLine(alias, duration, description, line, flags)
-        #entry_line.formatting = formatting
+        formatting = {
+            'time_format': '%H:%M' if split_line.group('start_time') and ':' in split_line.group('start_time') else '%H%M',
+            'spacings': (
+                len(split_line.group('spacing1')) if split_line.group('spacing1') else 1,
+                len(split_line.group('spacing2')),
+                len(split_line.group('spacing3')))
+        }
+
+        entry_line = EntryLine(alias, duration, description, flags, formatting)
 
         return entry_line
 
-    @staticmethod
-    def split_line(line):
-        split_line = line.split(None, 2)
-
-        if len(split_line) != 3:
-            raise ParseError("Couldn't split line into 3 chunks")
-
-        return split_line
-
-    @classmethod
-    def detect_formatting(cls, line):
-        """
-        Extract the width (= number of columns) of the different components of
-        the line as well as the time format. The returned data is a dictionary
-        with 3 values, 'width' containing a 2-items tuple representing the
-        width of the two first components of the line (alias and duration),
-        'time_format' containing the format of the time as a string usable by
-        strftime and 'spacer' containing a 2-items tuple representing the space
-        format used for the two first components (either a space or a
-        tabulation)
-        """
-        components = re.match(cls.formatting_match_re, line)
-        split_line = cls.split_line(line)
-
-        if components and len(components.groups()) == 2:
-            width = tuple(len(separator) for separator in components.groups())
-            spacer = tuple('\t' if separator[-1] == '\t' else ' '
-                           for separator in components.groups())
-        else:
-            return None
-
-        time_format = '%H:%M' if ':' in split_line[1] else '%H%M'
-
-        return {
-            'width': width,
-            'time_format': time_format,
-            'spacer': spacer
-        }
-
     @classmethod
     def parse_time(cls, str_time):
-        str_time = re.replace('[^\d]', '')
+        str_time = re.sub('[^\d]', '', str_time)
         minutes = int(str_time[-2:])
         hours = int(str_time[0:2] if len(str_time) > 3 else str_time[0])
 
