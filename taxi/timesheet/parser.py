@@ -40,73 +40,118 @@ class EntryLine(TextLine):
     FLAG_IGNORED = 1
     FLAG_PUSHED = 2
 
-    FLAGS_MAPPING = {
+    FLAGS_REPR = {
         FLAG_IGNORED: '?',
         FLAG_PUSHED: '=',
     }
 
-    def __init__(self, alias, duration, description, flags=None, formatting=None):
+    ATTRS_POSITION = {
+        0: 'flags',
+        2: 'alias',
+        4: 'duration',
+        6: 'description',
+    }
+
+    ATTRS_TRANSFORMERS = {
+        'flags': 'flags_as_text',
+        'duration': 'duration_as_text',
+    }
+
+    DURATION_FORMAT = '%H:%M'
+
+    def __init__(self, alias, duration, description, ignored=False, pushed=False, text=None):
         self.alias = alias
         self.duration = duration
         self.description = description
 
-        self.formatting = formatting or {
-            'spacings': (1, 1, 1),
-            'time_format': '%H:%M'
-        }
+        self._flags = set()
+        if pushed:
+            self._flags.add(self.FLAG_PUSHED)
+        if ignored:
+            self._flags.add(self.FLAG_IGNORED)
 
-        self.flags = flags or set()
+        self._changed_attrs = set()
+
+        if text:
+            self._text = text
+        else:
+            self._text = (
+                self.flags_as_text, ' ' if self.flags_as_text else '',
+                self.alias, ' ', self.duration_as_text, ' ', self.description
+            )
+
+    def __setattr__(self, attr, value):
+        if hasattr(self, '_changed_attrs'):
+            if attr in self.ATTRS_POSITION.values():
+                self._changed_attrs.add(attr)
+
+        super(EntryLine, self).__setattr__(attr, value)
 
     @property
     def ignored(self):
-        return self.FLAG_IGNORED in self.flags
+        return self.FLAG_IGNORED in self._flags
+
+    @ignored.setter
+    def ignored(self, value):
+        self._flags.add(self.FLAG_IGNORED)
+
+    @property
+    def pushed(self):
+        return self.FLAG_PUSHED in self._flags
+
+    @pushed.setter
+    def pushed(self, value):
+        self._flags.add(self.FLAG_PUSHED)
 
     @property
     def text(self):
-        return self.generate_text()
+        line = []
 
-    def get_flags_text(self):
-        return ''.join([self.FLAGS_MAPPING[flag] for flag in self.flags])
+        for i, text in enumerate(self._text):
+            if i in self.ATTRS_POSITION:
+                if self.ATTRS_POSITION[i] in self._changed_attrs:
+                    attr_name = self.ATTRS_POSITION[i]
+                    attr = getattr(self, attr_name)
 
-    # TODO
-    def generate_text(self):
-        """
-        Return a textual representation of the line.
+                    if attr_name in self.ATTRS_TRANSFORMERS:
+                        attr_value = getattr(self, self.ATTRS_TRANSFORMERS[attr_name])
+                    else:
+                        attr_value = getattr(self, self.ATTRS_POSITION[i])
+                else:
+                    attr_value = text
 
-        An effort is made to preserve the original formatting of the line since
-        some OCD people like to have perfectly aligned timesheets.
-        """
-        formatting = self.formatting
+                line.append(attr_value)
+            else:
+                if i == 1:
+                    text = '' if not self._flags else ' '
+                elif i > 0:
+                    if len(line[i-1]) != len(self._text[i-1]):
+                        text = ' ' * max(1, (len(text) - (len(line[i-1]) - len(self._text[i-1]))))
 
+                line.append(text)
+
+        return ''.join(line)
+
+    @property
+    def flags_as_text(self):
+        return ''.join([self.FLAGS_REPR[flag] for flag in self._flags])
+
+    @property
+    def duration_as_text(self):
         if isinstance(self.duration, tuple):
-            start = (self.duration[0].strftime(formatting['time_format'])
+            start = (self.duration[0].strftime(self.DURATION_FORMAT)
                      if self.duration[0] is not None
                      else '')
 
-            end = (self.duration[1].strftime(formatting['time_format'])
+            end = (self.duration[1].strftime(self.DURATION_FORMAT)
                    if self.duration[1] is not None
                    else '?')
 
             duration = '%s-%s' % (start, end)
         else:
-            duration = self.duration
+            duration = six.text_type(self.duration)
 
-        # TODO flags
-        # commented_prefix = '# ' if self.commented else ''
-        # alias = '%s' % self.alias if self.ignored else self.alias
-        flags_text = self.get_flags_text()
-
-        text = ('{flags}{spacing1}{alias}{spacing2}{duration}{spacing3}'
-                '{description}'.format(
-                    flags=flags_text,
-                    alias=self.alias,
-                    spacing1=' ' * self.formatting['spacings'][0] if flags_text else '',
-                    spacing2=' ' * self.formatting['spacings'][1],
-                    spacing3=' ' * self.formatting['spacings'][2],
-                    duration=duration,
-                    description=self.description))
-
-        return text
+        return duration
 
 
 class DateLine(TextLine):
@@ -137,7 +182,7 @@ class TimesheetParser(object):
     entry_match_re = re.compile(
         r"^(?:(?P<flags>.+?)(?P<spacing1>\s+))?"
         r"(?P<alias>[?\w_-]+)(?P<spacing2>\s+)"
-        r"(?:(?:(?P<start_time>(?:\d{1,2}):?(?:\d{1,2}))?-(?P<end_time>(?:(?:\d{1,2}):?(?:\d{1,2}))|\?))|(?P<duration>\d+(?:\.\d+)?))(?P<spacing3>\s+)"
+        r"(?P<time>(?:(?P<start_time>(?:\d{1,2}):?(?:\d{1,2}))?-(?P<end_time>(?:(?:\d{1,2}):?(?:\d{1,2}))|\?))|(?P<duration>\d+(?:\.\d+)?))(?P<spacing3>\s+)"
         r"(?P<description>.+)$"
     )
     date_match_re = re.compile(r'(\d{1,2})\D(\d{1,2})\D(\d{4}|\d{2})')
@@ -205,27 +250,31 @@ class TimesheetParser(object):
 
         description = split_line.group('description')
 
-        flags = set()
-
         # TODO
-        if (split_line.group('alias').endswith('?') or
-                (split_line.group('flags') and '?' in split_line.group('flags'))):
-            flags.add(EntryLine.FLAG_IGNORED)
+        ignored = (split_line.group('flags') and '?' in split_line.group('flags'))
+        pushed = (split_line.group('flags') and '=' in split_line.group('flags'))
 
-        formatting = {
-            'time_format': '%H:%M' if split_line.group('start_time') and ':' in split_line.group('start_time') else '%H%M',
-            'spacings': (
-                len(split_line.group('spacing1')) if split_line.group('spacing1') else 1,
-                len(split_line.group('spacing2')),
-                len(split_line.group('spacing3')))
-        }
+        line = (
+            split_line.group('flags') or '',
+            split_line.group('spacing1') or '',
+            split_line.group('alias'),
+            split_line.group('spacing2'),
+            split_line.group('time'),
+            split_line.group('spacing3'),
+            split_line.group('description'),
+        )
 
-        entry_line = EntryLine(alias, duration, description, flags, formatting)
+        entry_line = EntryLine(alias, duration, description, ignored=ignored,
+                pushed=pushed, text=line)
 
         return entry_line
 
     @classmethod
     def parse_time(cls, str_time):
+        """
+        Parse a time in the form hh:mm or hhmm (or even hmm) and return a
+        datetime.time object.
+        """
         str_time = re.sub('[^\d]', '', str_time)
         minutes = int(str_time[-2:])
         hours = int(str_time[0:2] if len(str_time) > 3 else str_time[0])

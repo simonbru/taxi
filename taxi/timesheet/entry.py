@@ -121,7 +121,14 @@ class EntriesCollection(collections.defaultdict):
                 elif isinstance(line, DateLine):
                     break
 
-        new_line = EntryLine(entry.alias, entry.duration, entry.description)
+        flags = set()
+        if entry.pushed:
+            flags.add(EntryLine.FLAG_PUSHED)
+
+        if entry.ignored:
+            flags.add(EntryLine.FLAG_IGNORED)
+
+        new_line = EntryLine(entry.alias, entry.duration, entry.description, flags)
         entry.line = new_line
 
         self.lines.insert(insert_at + 1, new_line)
@@ -291,7 +298,7 @@ class TimesheetEntry(object):
     def __init__(self, alias, duration, description):
         self.line = None
         self.ignored = False
-        self.commented = False
+        self.pushed = False
         self.previous_entry = None
         self.next_entry = None
 
@@ -315,8 +322,13 @@ class TimesheetEntry(object):
         super(TimesheetEntry, self).__setattr__(name, value)
 
         if self.line is not None:
-            if hasattr(self.line, name):
-                setattr(self.line, name, value)
+            if name == 'pushed':
+                self.line.add_flag(EntryLine.FLAG_PUSHED)
+            elif name == 'ignored':
+                self.line.add_flag(EntryLine.FLAG_IGNORED)
+            else:
+                if hasattr(self.line, name):
+                    setattr(self.line, name, value)
 
     @property
     def hash(self):
@@ -388,12 +400,12 @@ class TimesheetEntry(object):
         """
         Set the start time of the entry to the end time of the previous entry
         if the current entry is using a tuple duration with no start time and
-        the previous entry got commented.
+        the previous entry got pushed.
         """
         if (isinstance(self.duration, tuple) and self.duration[0] is None
                 and self.previous_entry is not None
-                and self.previous_entry.commented
-                and not self.commented):
+                and self.previous_entry.pushed
+                and not self.pushed):
             self.duration = (
                 self.get_start_time(),
                 self.duration[1]
