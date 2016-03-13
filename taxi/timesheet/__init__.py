@@ -91,11 +91,14 @@ class Timesheet(object):
         return filtered_entries
 
     def get_entries(self, date=None, exclude_ignored=False,
-                    exclude_unmapped=False, regroup=False):
+                    exclude_unmapped=False, exclude_pushed=False,
+                    regroup=False):
         def entry_filter(entry):
             return (not (exclude_ignored and entry.is_ignored())
                     and (not exclude_unmapped
-                         or entry.alias in aliases_database))
+                         or entry.alias in aliases_database)
+                    and (not exclude_pushed
+                         or not entry.pushed))
 
         return self.get_filtered_entries(date, entry_filter, regroup)
 

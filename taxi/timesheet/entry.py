@@ -396,21 +396,6 @@ class TimesheetEntry(object):
 
         return total_hours
 
-    def fix_start_time(self):
-        """
-        Set the start time of the entry to the end time of the previous entry
-        if the current entry is using a tuple duration with no start time and
-        the previous entry got pushed.
-        """
-        if (isinstance(self.duration, tuple) and self.duration[0] is None
-                and self.previous_entry is not None
-                and self.previous_entry.pushed
-                and not self.pushed):
-            self.duration = (
-                self.get_start_time(),
-                self.duration[1]
-            )
-
 
 @six.python_2_unicode_compatible
 class AggregatedTimesheetEntry(object):
