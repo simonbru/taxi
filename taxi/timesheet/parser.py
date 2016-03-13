@@ -111,7 +111,6 @@ class EntryLine(TextLine):
             if i in self.ATTRS_POSITION:
                 if self.ATTRS_POSITION[i] in self._changed_attrs:
                     attr_name = self.ATTRS_POSITION[i]
-                    attr = getattr(self, attr_name)
 
                     if attr_name in self.ATTRS_TRANSFORMERS:
                         attr_value = getattr(self, self.ATTRS_TRANSFORMERS[attr_name])
@@ -227,12 +226,22 @@ class TimesheetParser(object):
     def parse_entry_line(cls, line):
         split_line = re.match(cls.entry_match_re, line)
 
+        if not split_line:
+            raise ParseError(
+                "Line must have an alias, a duration and a description"
+            )
+
         alias = split_line.group('alias').replace('?', '')
         start_time = end_time = None
 
         if split_line.group('start_time') is not None:
             if split_line.group('start_time'):
-                start_time = cls.parse_time(split_line.group('start_time'))
+                try:
+                    start_time = cls.parse_time(split_line.group('start_time'))
+                except ValueError:
+                    raise ParseError(
+                        "Duration must be in format hh:mm or hhmm"
+                    )
             else:
                 start_time = None
 
@@ -270,12 +279,20 @@ class TimesheetParser(object):
         return entry_line
 
     @classmethod
+    def parse_duration(cls, str_duration):
+        return float(str_duration)
+
+    @classmethod
     def parse_time(cls, str_time):
         """
         Parse a time in the form hh:mm or hhmm (or even hmm) and return a
         datetime.time object.
         """
-        str_time = re.sub('[^\d]', '', str_time)
+        str_time = str_time.replace(':', '')
+
+        if not re.match('^\d{3,}$', str_time):
+            raise ValueError("Time must be numeric")
+
         minutes = int(str_time[-2:])
         hours = int(str_time[0:2] if len(str_time) > 3 else str_time[0])
 

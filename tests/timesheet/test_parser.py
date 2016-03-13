@@ -50,53 +50,34 @@ def test_extract_date_yyyy_mm_dd_missing_separator():
 
 
 def test_parse_time_valid_decimal():
-    assert TimesheetParser.parse_time('1.75') == 1.75
+    assert TimesheetParser.parse_duration('1.75') == 1.75
 
 
 def test_parse_time_valid_integer():
-    assert TimesheetParser.parse_time('3') == 3.0
+    assert TimesheetParser.parse_duration('3') == 3.0
 
 
 def test_parse_time_valid_big_integer():
-    assert TimesheetParser.parse_time('0900') == 900.0
-
-
-def test_parse_time_valid_timespan():
-    assert TimesheetParser.parse_time('0900-1015') == (datetime.time(9, 0),
-                                                       datetime.time(10, 15))
-
-
-def test_parse_time_valid_timespan_with_separators():
-    assert TimesheetParser.parse_time('09:00-10:15') == (datetime.time(9, 0),
-                                                         datetime.time(10, 15))
-
-
-def test_parse_time_valid_timespan_without_end():
-    assert TimesheetParser.parse_time('09:00-?') == (datetime.time(9, 0), None)
-
-
-def test_parse_time_valid_timespan_without_start():
-    assert TimesheetParser.parse_time('-10:15') == (None,
-                                                    datetime.time(10, 15))
+    assert TimesheetParser.parse_time('0900') == datetime.time(9, 0)
 
 
 def test_parse_time_invalid_string():
-    with pytest.raises(ParseError):
+    with pytest.raises(ValueError):
         TimesheetParser.parse_time('foo')
 
 
 def test_parse_time_hours_out_of_range():
-    with pytest.raises(ParseError):
+    with pytest.raises(ValueError):
         TimesheetParser.parse_time('-2500')
 
 
 def test_parse_time_minutes_out_of_range():
-    with pytest.raises(ParseError):
+    with pytest.raises(ValueError):
         TimesheetParser.parse_time('-1061')
 
 
 def test_parse_time_separator_without_timespan():
-    with pytest.raises(ParseError):
+    with pytest.raises(ValueError):
         TimesheetParser.parse_time('-')
 
 
@@ -139,7 +120,7 @@ foo -1100 bar
 
 2013/09/23
 bar 10:00-? ?
-foo? 2 foobar"""
+? foo 2 foobar"""
 
     lines = TimesheetParser.parse(contents)
 
@@ -189,68 +170,43 @@ foobar 0900-1000 baz
 
 
 def test_detect_formatting_no_alias_padding():
-    formatting = TimesheetParser.detect_formatting('foobar 4 description')
-    assert formatting['width'][0] == 7
+    line = EntryLine(
+        'foobar', 4, 'description',
+    )
+    assert line.text == 'foobar 4 description'
 
 
 def test_detect_formatting_padded_alias():
-    formatting = TimesheetParser.detect_formatting('foobar   4 description')
-    assert formatting['width'][0] == 9
+    line = EntryLine(
+        'foobar', 4, 'description',
+        text=('', '', 'foobar', '   ', '4', ' ', 'description')
+    )
+    assert line.text == 'foobar   4 description'
 
 
 def test_detect_formatting_no_time_padding():
-    formatting = TimesheetParser.detect_formatting(
-        'foobar 1500-1600 description'
+    line = EntryLine(
+        'foobar', (datetime.time(15, 0), datetime.time(16, 0)), 'description',
+        text=('', '', 'foobar', ' ', '1500-1600', ' ', 'description')
     )
-    assert formatting['width'][1] == 10
+    assert line.text == 'foobar 1500-1600 description'
 
 
 def test_detect_formatting_padded_time():
-    formatting = TimesheetParser.detect_formatting(
-        'foobar 1500-1600    description'
+    line = EntryLine(
+        'foobar', (datetime.time(15, 0), datetime.time(16, 0)), 'description',
+        text=('', '', 'foobar', ' ', '1500-1600', '   ', 'description')
     )
-    assert formatting['width'][1] == 13
+    assert line.text == 'foobar 1500-1600   description'
 
 
 def test_detect_formatting_padded_time_and_alias():
-    formatting = TimesheetParser.detect_formatting(
-        'foobar  1500-1600    description'
+    line = EntryLine(
+        'foobar', (datetime.time(15, 0), datetime.time(16, 0)), 'description',
+        text=('', '', 'foobar', '   ', '1500-1600', '   ', 'description')
     )
-    assert formatting['width'] == (8, 13)
-
-
-def test_detect_formatting_time_format_no_separator():
-    formatting = TimesheetParser.detect_formatting(
-        'foobar 1500-1600 description'
-    )
-    assert formatting['time_format'] == '%H%M'
-
-
-def test_detect_formatting_time_format_separator():
-    formatting = TimesheetParser.detect_formatting(
-        'foobar 15:00-16:00 description'
-    )
-    assert formatting['time_format'] == '%H:%M'
-
-
-def test_detect_formatting_time_hours():
-    formatting = TimesheetParser.detect_formatting('foobar 4 description')
-    assert formatting['time_format'] == '%H%M'
-
-
-def test_formatting_space():
-    formatting = TimesheetParser.detect_formatting('foobar 4 description')
-    assert formatting['spacer'] == (' ', ' ')
-
-
-def test_detect_formatting_tabs():
-    formatting = TimesheetParser.detect_formatting('foobar\t4\tdescription')
-    assert formatting['spacer'] == ('\t', '\t')
-
-
-def test_detect_formatting_space_tabs():
-    formatting = TimesheetParser.detect_formatting('foobar\t4 description')
-    assert formatting['spacer'] == ('\t', ' ')
+    line.duration = (datetime.time(14, 0), datetime.time(15, 0))
+    assert line.text == 'foobar   14:00-15:00 description'
 
 
 def test_parse_error_contains_line_number():
@@ -260,9 +216,21 @@ def test_parse_error_contains_line_number():
         assert e.line_number == 1
 
 
-def test_new_parser():
-    foobar = TimesheetParser.parse("""
-    21.04.2016
-    foobar 6 test
-    """)
-    import pdb; pdb.set_trace()
+def test_parse_time_valid_timespan():
+    t = TimesheetParser.parse_entry_line('foo 0900-1015 Description')
+    assert t.duration == (datetime.time(9, 0), datetime.time(10, 15))
+
+
+def test_parse_time_valid_timespan_with_separators():
+    t = TimesheetParser.parse_entry_line('foo 09:00-10:15 Description')
+    assert t.duration == (datetime.time(9, 0), datetime.time(10, 15))
+
+
+def test_parse_time_valid_timespan_without_end():
+    t = TimesheetParser.parse_entry_line('foo 09:00-? Description')
+    assert t.duration == (datetime.time(9, 0), None)
+
+
+def test_parse_time_valid_timespan_without_start():
+    t = TimesheetParser.parse_entry_line('foo -10:15 Description')
+    assert t.duration == (None, datetime.time(10, 15))

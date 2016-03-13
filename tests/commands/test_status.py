@@ -83,7 +83,7 @@ alias_1 1200-1300 Play ping-pong
     @freeze_time('2014-01-20')
     def test_status_ignored_not_mapped(self):
         self.write_entries("""20/01/2014
-unmapped? 0800-0900 Play ping-pong
+? unmapped 0800-0900 Play ping-pong
 """)
 
         stdout = self.run_command('status')
