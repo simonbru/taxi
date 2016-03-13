@@ -54,9 +54,9 @@ def test_edit_entry_commented():
     entries_collection = EntriesCollection(
         "20.01.2014\n_internal 0800-0900 Fix coffee machine"
     )
-    entries_collection[datetime.date(2014, 1, 20)][0].commented = True
+    entries_collection[datetime.date(2014, 1, 20)][0].pushed = True
 
-    assert entries_collection.lines[-1].text == u"# _internal 0800-0900 Fix coffee machine"
+    assert entries_collection.lines[-1].text == u"= _internal 0800-0900 Fix coffee machine"
 
 
 def test_edit_entry_ignored():
@@ -65,7 +65,7 @@ def test_edit_entry_ignored():
     )
     entries_collection[datetime.date(2014, 1, 20)][0].ignored = True
 
-    assert entries_collection.lines[-1].text == u"_internal? 0800-0900 Fix coffee machine"
+    assert entries_collection.lines[-1].text == u"? _internal 0800-0900 Fix coffee machine"
 
 
 def test_remove_entry_removes_line():

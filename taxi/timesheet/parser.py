@@ -93,7 +93,8 @@ class EntryLine(TextLine):
 
     @ignored.setter
     def ignored(self, value):
-        self._flags.add(self.FLAG_IGNORED)
+        meth = self.add_flag if value else self.remove_flag
+        meth(self.FLAG_IGNORED)
 
     @property
     def pushed(self):
@@ -101,7 +102,16 @@ class EntryLine(TextLine):
 
     @pushed.setter
     def pushed(self, value):
-        self._flags.add(self.FLAG_PUSHED)
+        meth = self.add_flag if value else self.remove_flag
+        meth(self.FLAG_PUSHED)
+
+    def add_flag(self, flag):
+        self._flags.add(flag)
+        self._changed_attrs.add('flags')
+
+    def remove_flag(self, flag):
+        self._flags.remove(flag)
+        self._changed_attrs.add('flags')
 
     @property
     def text(self):

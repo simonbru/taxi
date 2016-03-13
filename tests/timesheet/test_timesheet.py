@@ -208,11 +208,12 @@ foo 1 bar"""
         entries = t.get_entries(datetime.date(2013, 4, 1))
 
         for entry in list(entries.values())[0]:
-            entry.commented = True
+            entry.pushed = True
 
         lines = t.entries.to_lines()
+
         self.assertEquals(lines, [
-            "01.04.2013", "# foo 2 bar", "# bar 0900-1000 bar", "31.03.2013",
+            "01.04.2013", "= foo 2 bar", "= bar 0900-1000 bar", "31.03.2013",
             "foo 1 bar"
         ])
 
@@ -267,7 +268,7 @@ foo 1 bar"""
         t = self._create_timesheet(contents)
         entries = t.get_entries(regroup=True)[datetime.date(2013, 4, 1)]
         for entry in entries:
-            entry.commented = True
+            entry.pushed = True
         lines = t.entries.to_lines()
         self.assertEquals(lines, ["01.04.2013", "= foo 2 bar",
                                   "= bar 0900-1000 bar", "= foo 1 bar"])
@@ -309,7 +310,7 @@ def test_non_current_workday_entries():
 
 
 def test_non_current_workday_entries_ignored():
-    entries = EntriesCollection("""04.01.2014\nfoo? 2 bar""")
+    entries = EntriesCollection("""04.01.2014\n? foo 2 bar""")
 
     timesheet = Timesheet(entries)
     assert len(timesheet.get_non_current_workday_entries()) == 0
