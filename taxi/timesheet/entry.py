@@ -6,6 +6,7 @@ import datetime
 import six
 
 from .parser import DateLine, EntryLine, TextLine, TimesheetParser
+from .flags import FlaggableMixin
 
 
 def synchronized(func):
@@ -121,14 +122,8 @@ class EntriesCollection(collections.defaultdict):
                 elif isinstance(line, DateLine):
                     break
 
-        flags = set()
-        if entry.pushed:
-            flags.add(EntryLine.FLAG_PUSHED)
-
-        if entry.ignored:
-            flags.add(EntryLine.FLAG_IGNORED)
-
-        new_line = EntryLine(entry.alias, entry.duration, entry.description, flags)
+        new_line = EntryLine(entry.alias, entry.duration, entry.description,
+                             entry._flags)
         entry.line = new_line
 
         self.lines.insert(insert_at + 1, new_line)
@@ -231,7 +226,8 @@ class EntriesCollection(collections.defaultdict):
                 timesheet_entry = TimesheetEntry(
                     line.alias, line.duration, line.description
                 )
-                timesheet_entry.ignored = line.ignored
+                # TODO use flags
+                timesheet_entry._flags = line._flags
                 timesheet_entry.line = line
                 if len(self[current_date]) > 0:
                     timesheet_entry.previous_entry = self[current_date][-1]
@@ -289,16 +285,17 @@ class EntriesList(list):
 
 
 @six.python_2_unicode_compatible
-class TimesheetEntry(object):
+class TimesheetEntry(FlaggableMixin):
     """
     An entry is the main component of a timesheet, it has an alias, a duration
     and a description. The date is not part of the entry itself but of the
     timesheet, which contains a mapping of dates and entries.
     """
+
     def __init__(self, alias, duration, description):
+        super(TimesheetEntry, self).__init__()
+
         self.line = None
-        self.ignored = False
-        self.pushed = False
         self.previous_entry = None
         self.next_entry = None
 
@@ -321,14 +318,16 @@ class TimesheetEntry(object):
         """
         super(TimesheetEntry, self).__setattr__(name, value)
 
-        if self.line is not None:
-            if name == 'pushed':
-                self.line.add_flag(EntryLine.FLAG_PUSHED)
-            elif name == 'ignored':
-                self.line.add_flag(EntryLine.FLAG_IGNORED)
-            else:
-                if hasattr(self.line, name):
-                    setattr(self.line, name, value)
+        if hasattr(self, 'line') and self.line is not None and hasattr(self.line, name):
+            setattr(self.line, name, value)
+
+    def add_flag(self, flag):
+        super(TimesheetEntry, self).add_flag(flag)
+        self.line.add_flag(flag)
+
+    def remove_flag(self, flag):
+        super(TimesheetEntry, self).remove_flag(flag)
+        self.line.remove_flag(flag)
 
     @property
     def hash(self):

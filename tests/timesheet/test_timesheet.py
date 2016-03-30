@@ -334,3 +334,15 @@ def test_get_files_m_spans_over_previous_year_and_changes_year():
 def test_get_files_Y_returns_previous_files():
     f = get_files('foo_%Y', 2, datetime.date(2014, 2, 1))
     assert f == ['foo_2014', 'foo_2013', 'foo_2012']
+
+
+def test_get_entries_exclude_pushed():
+    contents = """01.04.2013
+foo 2 bar
+= bar 0900-1000 bar
+foo 1 bar"""
+    entries = EntriesCollection(contents)
+    timesheet = Timesheet(entries)
+    timesheet_entries = timesheet.get_entries(exclude_pushed=True)
+
+    assert len(list(timesheet_entries.values())[0]) == 2

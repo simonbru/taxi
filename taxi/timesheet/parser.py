@@ -1,10 +1,12 @@
 from __future__ import unicode_literals
 
+import copy
 import datetime
 import re
 
 import six
 
+from .flags import FlaggableMixin
 from ..exceptions import TaxiException
 from ..utils import date as date_utils
 
@@ -16,6 +18,7 @@ class TextLine(object):
     """
     def __init__(self, text):
         self._text = text
+        super(TextLine, self).__init__()
 
     def __str__(self):
         return self.text
@@ -32,17 +35,14 @@ class TextLine(object):
         self._text = value
 
 
-class EntryLine(TextLine):
+class EntryLine(TextLine, FlaggableMixin):
     """
     The EntryLine is a line representing a timesheet entry, with an alias, a
     duration and a description.
     """
-    FLAG_IGNORED = 1
-    FLAG_PUSHED = 2
-
     FLAGS_REPR = {
-        FLAG_IGNORED: '?',
-        FLAG_PUSHED: '=',
+        FlaggableMixin.FLAG_IGNORED: '?',
+        FlaggableMixin.FLAG_PUSHED: '=',
     }
 
     ATTRS_POSITION = {
@@ -59,17 +59,14 @@ class EntryLine(TextLine):
 
     DURATION_FORMAT = '%H:%M'
 
-    def __init__(self, alias, duration, description, ignored=False, pushed=False, text=None):
+    def __init__(self, alias, duration, description, flags=None, text=None):
+        super(EntryLine, self).__init__(text=text)
+
         self.alias = alias
         self.duration = duration
         self.description = description
-
-        self._flags = set()
-        if pushed:
-            self._flags.add(self.FLAG_PUSHED)
-        if ignored:
-            self._flags.add(self.FLAG_IGNORED)
-
+        if flags is not None:
+            self._flags = copy.copy(flags)
         self._changed_attrs = set()
 
         if text:
@@ -87,30 +84,12 @@ class EntryLine(TextLine):
 
         super(EntryLine, self).__setattr__(attr, value)
 
-    @property
-    def ignored(self):
-        return self.FLAG_IGNORED in self._flags
-
-    @ignored.setter
-    def ignored(self, value):
-        meth = self.add_flag if value else self.remove_flag
-        meth(self.FLAG_IGNORED)
-
-    @property
-    def pushed(self):
-        return self.FLAG_PUSHED in self._flags
-
-    @pushed.setter
-    def pushed(self, value):
-        meth = self.add_flag if value else self.remove_flag
-        meth(self.FLAG_PUSHED)
-
     def add_flag(self, flag):
-        self._flags.add(flag)
+        super(EntryLine, self).add_flag(flag)
         self._changed_attrs.add('flags')
 
     def remove_flag(self, flag):
-        self._flags.remove(flag)
+        super(EntryLine, self).remove_flag(flag)
         self._changed_attrs.add('flags')
 
     @property
@@ -143,7 +122,12 @@ class EntryLine(TextLine):
 
     @property
     def flags_as_text(self):
-        return ''.join([self.FLAGS_REPR[flag] for flag in self._flags])
+        if self._flags:
+            text = ''.join([self.FLAGS_REPR[flag] for flag in self._flags])
+        else:
+            text = ''
+
+        return text
 
     @property
     def duration_as_text(self):
@@ -270,8 +254,11 @@ class TimesheetParser(object):
         description = split_line.group('description')
 
         # TODO
-        ignored = (split_line.group('flags') and '?' in split_line.group('flags'))
-        pushed = (split_line.group('flags') and '=' in split_line.group('flags'))
+        flags = set()
+        if split_line.group('flags') and '?' in split_line.group('flags'):
+            flags.add(EntryLine.FLAG_IGNORED)
+        if split_line.group('flags') and '=' in split_line.group('flags'):
+            flags.add(EntryLine.FLAG_PUSHED)
 
         line = (
             split_line.group('flags') or '',
@@ -283,8 +270,8 @@ class TimesheetParser(object):
             split_line.group('description'),
         )
 
-        entry_line = EntryLine(alias, duration, description, ignored=ignored,
-                pushed=pushed, text=line)
+        entry_line = EntryLine(alias, duration, description, flags=flags,
+                               text=line)
 
         return entry_line
 

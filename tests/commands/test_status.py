@@ -105,3 +105,31 @@ alias_1 1200-1300 Play ping-pong
             "alias_1 (123/456, test)        1.00  Play ping-pong",
             stdout
         )
+
+    @override_settings({'test_aliases': {
+        'alias_1': '123/456',
+        'alias_2': '456/789',
+    }})
+    @freeze_time('2014-01-20')
+    def test_status_doesnt_show_pushed_entries(self):
+        self.write_entries("""20/01/2014
+= alias_1 0800-0900 Play ping-pong
+alias_2 1200-1300 Play ping-pong
+""")
+
+        stdout = self.run_command('status')
+        self.assertNotIn('alias_1', stdout)
+
+    @override_settings({'test_aliases': {
+        'alias_1': '123/456',
+        'alias_2': '456/789',
+    }})
+    @freeze_time('2014-01-20')
+    def test_status_pushed_option_shows_pushed_entries(self):
+        self.write_entries("""20/01/2014
+= alias_1 0800-0900 Play ping-pong
+alias_2 1200-1300 Play ping-pong
+""")
+
+        stdout = self.run_command('status', ['--pushed'])
+        self.assertIn('alias_1', stdout)
