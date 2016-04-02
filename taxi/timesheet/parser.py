@@ -218,6 +218,11 @@ class TimesheetParser(object):
 
     @classmethod
     def parse_entry_line(cls, line):
+        """
+        Try to parse the given text line and extract and entry. Return an
+        :class:`EntryLine` object if parsing is successful, otherwise raise
+        :class:`ParseError`.
+        """
         split_line = re.match(cls.entry_match_re, line)
 
         if not split_line:

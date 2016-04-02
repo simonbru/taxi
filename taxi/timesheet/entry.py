@@ -432,6 +432,10 @@ class AggregatedTimesheetEntry(object):
     def hours(self):
         return sum([entry.hours for entry in self.entries])
 
+    @property
+    def duration(self):
+        return self.hours
+
 
 class UnknownDirectionError(Exception):
     pass
