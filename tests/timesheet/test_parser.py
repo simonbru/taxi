@@ -49,14 +49,6 @@ def test_extract_date_yyyy_mm_dd_missing_separator():
         assert TimesheetParser.extract_date('2012/0801')
 
 
-def test_parse_time_valid_decimal():
-    assert TimesheetParser.parse_duration('1.75') == 1.75
-
-
-def test_parse_time_valid_integer():
-    assert TimesheetParser.parse_duration('3') == 3.0
-
-
 def test_parse_time_valid_big_integer():
     assert TimesheetParser.parse_time('0900') == datetime.time(9, 0)
 

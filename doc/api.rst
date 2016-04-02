@@ -6,22 +6,30 @@ Backends
 
 .. automodule:: taxi.backends
     :members:
-    :undoc-members:
+
+Backends registry
+~~~~~~~~~~~~~~~~~
+
+.. automodule:: taxi.backends.registry
+    :members:
 
 Timesheets
 ----------
 
 .. automodule:: taxi.timesheet
     :members:
-    :undoc-members:
 
 .. automodule:: taxi.timesheet.entry
     :members:
-    :undoc-members:
+
+Timesheet parsing
+~~~~~~~~~~~~~~~~~
+
+.. automodule:: taxi.timesheet.parser
+    :members:
 
 Projects
 --------
 
 .. automodule:: taxi.projects
     :members:
-    :undoc-members:

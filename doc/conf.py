@@ -30,6 +30,7 @@ import os
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.intersphinx',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -91,6 +92,12 @@ exclude_patterns = ['_build']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3/', None),
+}
+
+intersphinx_cache_limit = 90  # days
 
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []

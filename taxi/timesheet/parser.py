@@ -28,6 +28,9 @@ class TextLine(object):
 
     @property
     def text(self):
+        """
+        Return the text of the TextLine.
+        """
         return self._text
 
     @text.setter
@@ -162,27 +165,31 @@ class TimesheetParser(object):
     Parse a string and transform it into a list of parsed lines (date line,
     entry line, text line). The basic structure is as follows:
 
-    Date line: <date>, where `date` is formatted as dd.mm.yyyy (the `.`
-    separator can be replaced by any non-word character)
-    Entry line: <alias> <duration> <description>, where `duration` can either
-    be expressed as a float/int to mean hours or as a time range (eg.
-    `09:00-09:30`, the `:` separator being optional)
-    Comment line: any line starting with `#` will be ignored
+        * Date line: ``<date>``, where ``date`` is formatted as dd.mm.yyyy (the
+          ``.`` separator can be replaced by any non-word character)
+        * Entry line: ``<alias> <duration> <description>``, where `duration`
+          can either be expressed as a float/int to mean hours or as a time
+          range (eg. ``09:00-09:30``, the ``:`` separator being optional)
+        * Comment line: any line starting with ``#`` will be ignored
 
     For the parsed string to be a valid timesheet, any entry line needs to
     be preceded by at least a date line.
     """
-    entry_match_re = re.compile(
+    ENTRY_REGEXP = re.compile(
         r"^(?:(?P<flags>.+?)(?P<spacing1>\s+))?"
         r"(?P<alias>[?\w_-]+)(?P<spacing2>\s+)"
         r"(?P<time>(?:(?P<start_time>(?:\d{1,2}):?(?:\d{1,2}))?-(?P<end_time>(?:(?:\d{1,2}):?(?:\d{1,2}))|\?))|(?P<duration>\d+(?:\.\d+)?))(?P<spacing3>\s+)"
         r"(?P<description>.+)$"
     )
-    date_match_re = re.compile(r'(\d{1,2})\D(\d{1,2})\D(\d{4}|\d{2})')
-    us_date_match_re = re.compile(r'(\d{4})\D(\d{1,2})\D(\d{1,2})')
+    DATE_REGEXP = re.compile(r'(\d{1,2})\D(\d{1,2})\D(\d{4}|\d{2})')
+    US_DATE_REGEXP = re.compile(r'(\d{4})\D(\d{1,2})\D(\d{1,2})')
 
     @classmethod
     def parse(cls, text):
+        """
+        Parse the given text and return a list made of :class:`TextLine`,
+        :class:`EntryLine`, and :class:`DateLine` objects.
+        """
         text = text.strip()
         lines_parser = cls.parser(text.splitlines())
 
@@ -190,6 +197,10 @@ class TimesheetParser(object):
 
     @classmethod
     def parser(cls, lines):
+        """
+        Return an iterator over the given lines, which will parse every line
+        and try to extract dates and entries.
+        """
         current_date = None
 
         for (lineno, line) in enumerate(lines, 1):
@@ -223,7 +234,7 @@ class TimesheetParser(object):
         :class:`EntryLine` object if parsing is successful, otherwise raise
         :class:`ParseError`.
         """
-        split_line = re.match(cls.entry_match_re, line)
+        split_line = re.match(cls.ENTRY_REGEXP, line)
 
         if not split_line:
             raise ParseError(
@@ -281,14 +292,10 @@ class TimesheetParser(object):
         return entry_line
 
     @classmethod
-    def parse_duration(cls, str_duration):
-        return float(str_duration)
-
-    @classmethod
     def parse_time(cls, str_time):
         """
-        Parse a time in the form hh:mm or hhmm (or even hmm) and return a
-        datetime.time object.
+        Parse a time in the form ``hh:mm`` or ``hhmm`` (or even ``hmm``) and
+        return a :class:`datetime.time` object.
         """
         str_time = str_time.replace(':', '')
 
@@ -303,11 +310,11 @@ class TimesheetParser(object):
     @classmethod
     def extract_date(cls, line):
         # Try to match dd/mm/yyyy format
-        date_matches = re.match(cls.date_match_re, line)
+        date_matches = re.match(cls.DATE_REGEXP, line)
 
         # If no match, try with yyyy/mm/dd format
         if date_matches is None:
-            date_matches = re.match(cls.us_date_match_re, line)
+            date_matches = re.match(cls.US_DATE_REGEXP, line)
 
         if date_matches is None:
             raise ValueError("No date could be extracted from the given value")
