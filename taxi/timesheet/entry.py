@@ -346,13 +346,22 @@ class TimesheetEntry(FlaggableMixin):
         )
 
     def is_ignored(self):
+        """
+        Return True if this entry is supposed to be ignored, False otherwise. A
+        line can be ignored for several reasons:
+
+            * It has the ignored flag set
+            * Its duration is zero
+            * Its description is `?`
+            * Its alias ends with a `?`
+        """
         return (self.ignored or self.hours == 0 or self.description == '?' or
                 self._alias[-1] == '?')
 
     def get_start_time(self):
         """
-        Return the start time of the entry as a `datetime.time` object. If the
-        start time is `None`, the end time of the previous entry will be
+        Return the start time of the entry as a :class:`datetime.time` object.
+        If the start time is `None`, the end time of the previous entry will be
         returned instead. If the current entry doesn't have a duration in the
         form of a tuple, if there's no previous entry or if the previous entry
         has no end time, the value `None` will be returned.
