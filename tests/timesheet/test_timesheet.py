@@ -30,6 +30,11 @@ def test_empty_timesheet_has_zero_entries():
     assert len(t.entries) == 0
 
 
+def test_entry_with_question_mark_description_is_ignored():
+    t = _create_timesheet('10.10.2012\nfoo 2 ?')
+    assert list(t.entries.values())[0][0].is_ignored()
+
+
 def test_entry_alias_is_extracted():
     contents = """10.10.2012
 foo 09:00-10:00 baz"""

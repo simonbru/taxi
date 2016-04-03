@@ -338,7 +338,7 @@ class TimesheetEntry(FlaggableMixin):
         )
 
     def is_ignored(self):
-        return self.ignored or self.hours == 0
+        return self.ignored or self.hours == 0 or self.description == '?'
 
     def get_start_time(self):
         """
