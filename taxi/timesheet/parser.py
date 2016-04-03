@@ -95,6 +95,38 @@ class EntryLine(TextLine, FlaggableMixin):
         super(EntryLine, self).remove_flag(flag)
         self._changed_attrs.add('flags')
 
+    def set_flags_from_text(self, flags_text):
+        """
+        Extract the flags from the given text and set them on the entry line.
+        """
+        for flag in self.extract_flags_from_text(flags_text):
+            self.add_flag(flag)
+
+    @classmethod
+    def extract_flags_from_text(cls, flags_text):
+        """
+        Extract the flags from the given text and return a set of flag values.
+        """
+        flags = set()
+        reversed_flags_repr = {v: k for k, v in cls.FLAGS_REPR.items()}
+        for flag_repr in flags_text:
+            if flag_repr not in reversed_flags_repr:
+                raise KeyError("Flag '%s' is not recognized" % flag_repr)
+            else:
+                flags.add(reversed_flags_repr[flag_repr])
+
+        return flags
+
+    @property
+    def flags(self):
+        """
+        Return a copy of the flags. The reason why we return a copy and not the
+        original flags is that we don't want it to be altered because we need
+        to keep the synchronisation with the text lines. To change a flag, use
+        :meth:`add_flag` or :meth:`remove_flag`.
+        """
+        return copy.copy(self._flags)
+
     @property
     def text(self):
         line = []
@@ -269,12 +301,16 @@ class TimesheetParser(object):
 
         description = split_line.group('description')
 
-        # TODO
-        flags = set()
-        if split_line.group('flags') and '?' in split_line.group('flags'):
-            flags.add(EntryLine.FLAG_IGNORED)
-        if split_line.group('flags') and '=' in split_line.group('flags'):
-            flags.add(EntryLine.FLAG_PUSHED)
+        # Parse and set line flags
+        if split_line.group('flags'):
+            try:
+                flags = EntryLine.extract_flags_from_text(
+                    split_line.group('flags')
+                )
+            except KeyError as e:
+                raise ParseError(*e.args)
+        else:
+            flags = set()
 
         line = (
             split_line.group('flags') or '',

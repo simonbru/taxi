@@ -226,3 +226,13 @@ def test_parse_time_valid_timespan_without_end():
 def test_parse_time_valid_timespan_without_start():
     t = TimesheetParser.parse_entry_line('foo -10:15 Description')
     assert t.duration == (None, datetime.time(10, 15))
+
+
+def test_inexistent_flag_raises_parse_error():
+    with pytest.raises(ParseError):
+        TimesheetParser.parse_entry_line('^ foo 09:00-10:15 Description')
+
+
+def test_entry_with_flag_keeps_flag():
+    t = TimesheetParser.parse_entry_line('= foo 09:00-10:15 Description')
+    assert EntryLine.FLAG_PUSHED in t.flags
