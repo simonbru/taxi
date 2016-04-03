@@ -241,7 +241,7 @@ class TimesheetParser(object):
                 "Line must have an alias, a duration and a description"
             )
 
-        alias = split_line.group('alias').replace('?', '')
+        alias = split_line.group('alias')
         start_time = end_time = None
 
         if split_line.group('start_time') is not None:

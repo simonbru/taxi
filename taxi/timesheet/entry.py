@@ -299,7 +299,7 @@ class TimesheetEntry(FlaggableMixin):
         self.previous_entry = None
         self.next_entry = None
 
-        self.alias = alias
+        self._alias = alias
         self.description = description
         self.duration = duration
 
@@ -321,6 +321,14 @@ class TimesheetEntry(FlaggableMixin):
         if hasattr(self, 'line') and self.line is not None and hasattr(self.line, name):
             setattr(self.line, name, value)
 
+    @property
+    def alias(self):
+        return self._alias if self._alias[-1] != '?' else self._alias[:-1]
+
+    @alias.setter
+    def alias(self, value):
+        self._alias = value
+
     def add_flag(self, flag):
         super(TimesheetEntry, self).add_flag(flag)
         self.line.add_flag(flag)
@@ -332,13 +340,14 @@ class TimesheetEntry(FlaggableMixin):
     @property
     def hash(self):
         return u'%s%s%s' % (
-            self.alias,
+            self._alias,
             self.description,
             self.ignored
         )
 
     def is_ignored(self):
-        return self.ignored or self.hours == 0 or self.description == '?'
+        return (self.ignored or self.hours == 0 or self.description == '?' or
+                self._alias[-1] == '?')
 
     def get_start_time(self):
         """

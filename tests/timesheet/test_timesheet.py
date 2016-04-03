@@ -35,6 +35,28 @@ def test_entry_with_question_mark_description_is_ignored():
     assert list(t.entries.values())[0][0].is_ignored()
 
 
+def test_entry_with_question_mark_in_alias_is_ignored():
+    t = _create_timesheet('10.10.2012\nfoo? 2 Foo')
+    assert list(t.entries.values())[0][0].is_ignored()
+
+
+def test_entry_without_question_mark_in_alias_is_not_ignored():
+    t = _create_timesheet('10.10.2012\nfoo 2 Foo')
+    assert not list(t.entries.values())[0][0].is_ignored()
+
+
+def test_add_ignored_flag_to_alias_makes_entry_ignored():
+    t = _create_timesheet('10.10.2012\nfoo 2 Foo')
+    t.entries[datetime.date(2012, 10, 10)][0].alias = 'foo?'
+    assert list(t.entries.values())[0][0].is_ignored()
+
+
+def test_add_ignored_flag_to_alias_makes_to_lines_output_question_mark():
+    t = _create_timesheet('10.10.2012\nfoo 2 Foo')
+    t.entries[datetime.date(2012, 10, 10)][0].alias = 'foo?'
+    assert t.entries.to_lines()[-1] == 'foo? 2 Foo'
+
+
 def test_entry_alias_is_extracted():
     contents = """10.10.2012
 foo 09:00-10:00 baz"""
