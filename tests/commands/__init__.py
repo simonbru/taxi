@@ -15,41 +15,8 @@ from click.testing import CliRunner
 
 from taxi.backends import BaseBackend, PushEntryFailed, PushEntriesFailed
 from taxi.backends.registry import backends_registry
-from taxi.commands.base import cli
 from taxi.projects import ProjectsDb
 from taxi.utils.file import expand_date
-
-
-class TestBackendEntryPoint(object):
-    """
-    Dedicated backend for tests. Entries with the alias `fail` will fail when
-    trying to push them.
-    """
-    class TestBackend(BaseBackend):
-        def __init__(self, *args, **kwargs):
-            super(TestBackendEntryPoint.TestBackend, self).__init__(
-                *args, **kwargs
-            )
-            self.entries = []
-
-        def push_entry(self, date, entry):
-            self.entries.append(entry)
-
-            if entry.alias == 'fail':
-                raise PushEntryFailed()
-
-        def post_push_entries(self):
-            failed_entries = {}
-
-            for entry in self.entries:
-                if entry.alias == 'post_push_fail':
-                    failed_entries[entry] = 'foobar'
-
-            if failed_entries:
-                raise PushEntriesFailed(entries=failed_entries)
-
-    def load(self):
-        return self.TestBackend
 
 
 class CommandTestCase(TestCase):
