@@ -2,13 +2,21 @@
 Changelog
 #########
 
-4.2.0 (unreleased)
+4.3.0 (unreleased)
 ==================
 
 Changed
 -------
 
 * Entries are ignored if their description is a single question mark ("?")
+
+4.2.0 (2016-05-25)
+==================
+
+Added
+-----
+
+* Add installer script and plugin management commands.
 
 4.1.0 (2016-03-09)
 ==================
