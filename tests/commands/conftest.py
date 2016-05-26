@@ -1,10 +1,13 @@
 import configparser
+import os
 
 from click.testing import CliRunner
+import py
 import pytest
 
 from taxi.backends import BaseBackend, PushEntryFailed, PushEntriesFailed
 from taxi.commands.base import cli as taxi_cli
+from taxi.utils.file import expand_date
 
 
 class TestBackendEntryPoint(object):
@@ -41,10 +44,17 @@ class TestBackendEntryPoint(object):
 
 class ConfigFile:
     DEFAULT_CONFIG = {
+        'default': {
+            'editor': '/bin/touch'
+        },
         'backends': {
             'test': 'test:///',
             'local': 'dummy:///',
         },
+        'test_aliases': {
+            'alias_1': '123/456',
+            'post_push_fail': '123/457'
+        }
     }
 
     def __init__(self, path):
@@ -79,9 +89,26 @@ class ConfigFile:
         self.sync = True
         self.save()
 
+    def clear_section(self, section):
+        self.config.remove_section(section)
+        self.config.add_section(section)
+
     def save(self):
         with open(self.path, 'w') as cf:
             self.config.write(cf)
+
+
+class EntriesFileGenerator(py.path.local):
+    def __init__(self, tmpdir, pattern):
+        self.pattern = pattern
+        self.tmpdir = tmpdir
+
+    def patch_config(self, config):
+        config.set('default', 'file',
+                   os.path.join(str(self.tmpdir), self.pattern))
+
+    def expand(self, date):
+        return self.tmpdir.join(expand_date(self.pattern, date))
 
 
 @pytest.fixture
@@ -103,6 +130,16 @@ def entries_file(tmpdir, config):
     config.set('default', 'file', str(new_entries_file))
 
     return new_entries_file
+
+
+@pytest.fixture
+def entries_dir(tmpdir, config):
+    return EntriesDir()
+    entries_dir = tmpdir.mkdir('new_entries')
+    entries_file_path = os.path.join(str(entries_dir), '%m_%Y.txt')
+    config.set('default', 'file', entries_file_path)
+
+    return entries_file_path
 
 
 @pytest.fixture

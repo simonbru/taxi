@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 
 
 def test_alias_list(cli, config):
+    config.clear_section('test_aliases')
     for alias, activity in [('alias_1', '123/456'), ('alias_2', '123/457'),
                             ('foo', '123/458')]:
         config.set('test_aliases', alias, activity)
@@ -17,12 +18,14 @@ def test_alias_list(cli, config):
 
 
 def test_alias_search_mapping_exact(cli, config):
+    config.clear_section('test_aliases')
     config.set('test_aliases', 'alias_1', '123/456')
     output = cli('alias', ['list', 'alias_1'])
     assert output == "[test] alias_1 -> 123/456\n"
 
 
 def test_alias_search_mapping_partial(cli, config):
+    config.clear_section('test_aliases')
     config.set('test_aliases', 'alias_1', '123/456')
     config.set('test_aliases', 'alias_2', '123/457')
 
@@ -36,6 +39,7 @@ def test_alias_search_mapping_partial(cli, config):
 
 
 def test_alias_search_project(cli, config):
+    config.clear_section('test_aliases')
     config.set('test_aliases', 'alias_1', '123/456')
     config.set('test_aliases', 'alias_2', '123/457')
     output = cli('alias', ['list', '-r', '123'])
@@ -53,6 +57,7 @@ def test_alias_search_project(cli, config):
 
 
 def test_alias_search_project_activity(cli, config):
+    config.clear_section('test_aliases')
     config.set('test_aliases', 'alias_1', '123/456')
     config.set('test_aliases', 'alias_2', '123/457')
 
