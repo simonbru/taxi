@@ -23,7 +23,8 @@ def test_edit_utf8_file(cli, config, entries_file):
     Editing a file that contains accents should not crash.
     """
     entries_file.write(
-        "20/01/2014\nalias_1 2 préparation du café pour l'évènement"
+        "20/01/2014\nalias_1 2 préparation du café pour l'évènement".encode('utf-8'),
+        mode='wb'
     )
 
     cli('edit')

@@ -1,9 +1,13 @@
-import configparser
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
 import os
 
 from click.testing import CliRunner
 import py
 import pytest
+from six import StringIO
+from six.moves import configparser
 
 from taxi.backends import BaseBackend, PushEntryFailed, PushEntriesFailed
 from taxi.commands.base import cli as taxi_cli
@@ -59,7 +63,11 @@ class ConfigFile:
 
     def __init__(self, path):
         self.path = path
-        self.config = configparser.RawConfigParser()
+        self.config = configparser.RawConfigParser(allow_no_value=True)
+        # For some reason Python 2 doesn't want to create a section called
+        # `default` with ``add_section``, but creating it that way seems to
+        # work ¯\_(ツ)_/¯
+        self.config.readfp(StringIO('[default]'))
         self._sync = False
 
         for section, params in self.DEFAULT_CONFIG.items():
@@ -71,10 +79,11 @@ class ConfigFile:
         self._sync = True
 
     def set(self, section, attr, value):
-        if section not in self.config:
-            self.config[section] = {}
-
-        self.config[section][attr] = value
+        try:
+            self.config.set(section, attr, value)
+        except configparser.NoSectionError:
+            self.config.add_section(section)
+            self.config.set(section, attr, value)
 
         if self._sync:
             self.save()
@@ -130,16 +139,6 @@ def entries_file(tmpdir, config):
     config.set('default', 'file', str(new_entries_file))
 
     return new_entries_file
-
-
-@pytest.fixture
-def entries_dir(tmpdir, config):
-    return EntriesDir()
-    entries_dir = tmpdir.mkdir('new_entries')
-    entries_file_path = os.path.join(str(entries_dir), '%m_%Y.txt')
-    config.set('default', 'file', entries_file_path)
-
-    return entries_file_path
 
 
 @pytest.fixture
