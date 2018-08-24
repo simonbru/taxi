@@ -4,13 +4,39 @@ import datetime
 
 import click
 
+from ..aliases import Mapping, aliases_database
 from ..exceptions import ParseError
+from ..settings import Settings
 from ..timesheet import Entry
-from .base import cli, get_timesheet_collection_for_context
+from .base import cli, get_config_file, get_timesheet_collection_for_context, prepare, get_data_dir
+from .alias import list_aliases
+
+
+def complete_alias(ctx, args, incomplete):
+    prepare(ctx, get_config_file(), get_data_dir())
+    # config = get_config_file()
+    # settings = Settings(config)
+    # aliases_database.reset()
+    # aliases_database.update(settings.get_aliases())
+    # populate_aliases(settings.get_aliases())
+    aliases_mappings = aliases_database.filter_from_alias(incomplete, backend=None)
+    aliases = []
+    for alias, m in aliases_mappings.items():
+        activity = None
+        if m.mapping is not None:
+            project, activity = ctx.obj['projects_db'].mapping_to_project(m)
+        else:
+            project = None
+        aliases.append((alias, activity, project, m))
+    
+    return [
+        (alias, project.name if project else '')
+        for alias, activity, project, mapping in aliases
+    ]
 
 
 @cli.command(short_help="Add entry with the current time to the entries file.")
-@click.argument('alias')
+@click.argument('alias', autocompletion=complete_alias)
 @click.argument('description', nargs=-1)
 @click.option('-f', '--file', 'f', type=click.Path(dir_okay=False),
               help="Path to the entries file to use.")

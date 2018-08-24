@@ -250,18 +250,7 @@ def get_data_dir():
     return xdg_dirs.user_data_dir
 
 
-@click.group(cls=AliasedGroup)
-@click.option('--config', '-c', default=get_config_file(),
-              type=ExpandedPath(dir_okay=False),
-              help="Path to the configuration file to use.")
-@click.option('--taxi-dir', default=get_data_dir(),
-              type=ExpandedPath(file_okay=False), help="Path to the directory "
-              "that will be used for internal files.")
-@click.option('--version', is_flag=True, callback=print_version,
-              expose_value=False, is_eager=True,
-              help="Print version number and exit.")
-@click.pass_context
-def cli(ctx, config, taxi_dir):
+def prepare(ctx, config, taxi_dir):
     create_config_file(config)
     settings = Settings(config)
 
@@ -275,6 +264,21 @@ def cli(ctx, config, taxi_dir):
     ctx.obj['settings'] = settings
     ctx.obj['view'] = TtyUi()
     ctx.obj['projects_db'] = ProjectsDb(os.path.expanduser(taxi_dir))
+
+
+@click.group(cls=AliasedGroup)
+@click.option('--config', '-c', default=get_config_file(),
+              type=ExpandedPath(dir_okay=False),
+              help="Path to the configuration file to use.")
+@click.option('--taxi-dir', default=get_data_dir(),
+              type=ExpandedPath(file_okay=False), help="Path to the directory "
+              "that will be used for internal files.")
+@click.option('--version', is_flag=True, callback=print_version,
+              expose_value=False, is_eager=True,
+              help="Print version number and exit.")
+@click.pass_context
+def cli(ctx, config, taxi_dir):
+    prepare(ctx,config, taxi_dir)
 
 
 # This can't be called from inside a command because Click will already have built its commands list
