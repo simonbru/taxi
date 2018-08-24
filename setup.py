@@ -9,7 +9,7 @@ tests_require = [
 ]
 
 install_requires = [
-    'click>=3.3',
+    'click',
     'six>=1.9.0',
     'appdirs>=1.4.0',
 ]
@@ -24,6 +24,9 @@ setup(
     author_email='sylvain.fankhauser@liip.ch',
     url='https://github.com/sephii/taxi',
     install_requires=install_requires,
+    dependency_links=[
+        'https://github.com/pallets/click/archive/master.tar.gz#egg=click',
+    ],
     setup_requires=['pytest-runner'],
     license='wtfpl',
     tests_require=tests_require,
@@ -41,5 +44,6 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
-    ]
+    ],
+    zip_safe=False,
 )
