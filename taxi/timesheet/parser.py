@@ -74,7 +74,7 @@ class TimesheetParser(object):
         Entry: 'entry_line_to_text',
     }
 
-    def __init__(self, flags_repr=None, add_date_to_bottom=None, date_format='%d.%m.%Y'):
+    def __init__(self, flags_repr=None, add_date_to_bottom=None, date_format='%d.%m.%Y', reformat=True):
         """
         If `flags_repr` is set, it must be a :class:`dict` where keys are supported flags from
         :class:`~taxi.timesheet.lines.Entry` and the values are a single characters that are unique among all the
@@ -90,6 +90,7 @@ class TimesheetParser(object):
         self.flags_repr = flags_repr or self.ENTRY_FLAGS_REPR
         self.add_date_to_bottom = add_date_to_bottom
         self.date_format = date_format
+        self.reformat = reformat
         self.entry_line_regexp = self.ENTRY_LINE_REGEXP % {'flags_repr': re.escape(''.join(self.flags_repr.values()))}
 
     def flags_to_text(self, flags):
@@ -132,7 +133,7 @@ class TimesheetParser(object):
         """
         # Changing the date in a dateline is not supported yet, but if it gets implemented someday this will need to be
         # changed
-        if date_line._text is not None:
+        if not self.reformat and date_line._text is not None:
             return date_line._text
         else:
             return date_utils.unicode_strftime(date_line.date, self.date_format)
@@ -152,7 +153,7 @@ class TimesheetParser(object):
 
         # The entry is new, it didn't come from an existing line, so let's just return a simple text representation of
         # it
-        if not entry._text:
+        if self.reformat or not entry._text:
             flags_text = self.flags_to_text(entry.flags)
             duration_text = self.duration_to_text(entry.duration)
 
